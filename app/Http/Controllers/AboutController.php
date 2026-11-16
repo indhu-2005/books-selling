@@ -12,11 +12,19 @@ class AboutController extends Controller
 {
     public function index()
     {
-        $booksCount = Book::count();
-        $categoriesCount = Category::count();
-        $authorsCount = Author::count();
-        $usersCount = User::count();
-        $ordersCount = Order::count();
+        try {
+            $booksCount = Book::count();
+            $categoriesCount = Category::count();
+            $authorsCount = Author::count();
+            $usersCount = User::count();
+            $ordersCount = Order::count();
+        } catch (\Throwable $e) {
+            $booksCount = 0;
+            $categoriesCount = 0;
+            $authorsCount = 0;
+            $usersCount = 0;
+            $ordersCount = 0;
+        }
 
         // Estimated metrics for sustainability and savings
         $treesSaved = max(14, intval($booksCount * 1.5));

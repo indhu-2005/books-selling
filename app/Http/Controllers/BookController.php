@@ -20,39 +20,50 @@ class BookController extends Controller
         $search = $request->input('search');
         $categorySlug = $request->input('category');
 
-        $query = Book::with(['category', 'authorProfile']);
+        try {
+            $query = Book::with(['category', 'authorProfile']);
 
-        if ($search) {
-            $query->where(function ($q) use ($search) {
-                $q->where('title', 'LIKE', "%{$search}%")
-                  ->orWhere('author', 'LIKE', "%{$search}%")
-                  ->orWhere('description', 'LIKE', "%{$search}%")
-                  ->orWhereHas('category', function ($catQuery) use ($search) {
-                      $catQuery->where('name', 'LIKE', "%{$search}%");
-                  });
-            });
+            if ($search) {
+                $query->where(function ($q) use ($search) {
+                    $q->where('title', 'LIKE', "%{$search}%")
+                      ->orWhere('author', 'LIKE', "%{$search}%")
+                      ->orWhere('description', 'LIKE', "%{$search}%")
+                      ->orWhereHas('category', function ($catQuery) use ($search) {
+                          $catQuery->where('name', 'LIKE', "%{$search}%");
+                      });
+                });
+            }
+
+            if ($categorySlug) {
+                $query->whereHas('category', function ($q) use ($categorySlug) {
+                    $q->where('slug', $categorySlug);
+                });
+            }
+
+            $featuredBooks = (clone $query)->where('featured', true)->latest()->take(4)->get();
+            if ($featuredBooks->isEmpty()) {
+                $featuredBooks = (clone $query)->latest()->take(4)->get();
+            }
+
+            $recentBooks = (clone $query)->latest()->take(8)->get();
+            $categories = Category::withCount('books')->get();
+            $upcomingEvents = Event::where('event_date', '>=', now()->toDateString())
+                                    ->orderBy('event_date', 'asc')
+                                    ->take(3)
+                                    ->get();
+            $recentPosts = BlogPost::latest()->take(3)->get();
+            $authorsCount = Author::count();
+            $booksCount = Book::count();
+        } catch (\Throwable $e) {
+            // Graceful fallback when database connection is not yet configured on serverless
+            $featuredBooks = collect([]);
+            $recentBooks = collect([]);
+            $categories = collect([]);
+            $upcomingEvents = collect([]);
+            $recentPosts = collect([]);
+            $authorsCount = 0;
+            $booksCount = 0;
         }
-
-        if ($categorySlug) {
-            $query->whereHas('category', function ($q) use ($categorySlug) {
-                $q->where('slug', $categorySlug);
-            });
-        }
-
-        $featuredBooks = (clone $query)->where('featured', true)->latest()->take(4)->get();
-        if ($featuredBooks->isEmpty()) {
-            $featuredBooks = (clone $query)->latest()->take(4)->get();
-        }
-
-        $recentBooks = (clone $query)->latest()->take(8)->get();
-        $categories = Category::withCount('books')->get();
-        $upcomingEvents = Event::where('event_date', '>=', now()->toDateString())
-                                ->orderBy('event_date', 'asc')
-                                ->take(3)
-                                ->get();
-        $recentPosts = BlogPost::latest()->take(3)->get();
-        $authorsCount = Author::count();
-        $booksCount = Book::count();
 
         return view('pages.home', compact(
             'featuredBooks',
